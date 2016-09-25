@@ -14,4 +14,12 @@ typedef struct obj_plane{
     double *normal;
 } obj_plane;
 
+typedef struct scene_object{
+        char type;
+        double *color;
+        double *position;
+        double *normal;
+        double radius;
+
+} scene_object;
 

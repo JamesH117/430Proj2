@@ -4,10 +4,17 @@
 #include "structs.h"
 
 int line = 1;
+int num_camera;
+int total_objects;
+int list_i = 0;
 
 obj_sphere *sphere_list;
 obj_plane *plane_list;
 obj_camera main_camera;
+scene_object *obj_list;
+
+
+
 char current_object;
 
 // next_c() wraps the getc() function and provides error checking and line
@@ -146,6 +153,11 @@ void read_scene(char* filename) {
     skip_ws(json);
     char* value = next_string(json);
     if (strcmp(value, "camera") == 0) {
+        if(num_camera >1){
+            fprintf(stderr, "Error: More than one camera object has been provided, will not render.");
+            exit(1);
+        }
+        num_camera += 1;
         //Working with camera object
         //Put future values into camera object
         current_object = 'c';
@@ -154,13 +166,17 @@ void read_scene(char* filename) {
     else if (strcmp(value, "sphere") == 0) {
         //Working with Sphere object
         //Put future values into sphere object and then put into list
+        total_objects += 1;
         current_object = 's';
+        obj_list[list_i].type = 's';
         printf("Working with a %cphere\n", current_object);
       }
     else if (strcmp(value, "plane") == 0) {
         //Working with Plane object
         //Put future values into plane object and then put into list
+        total_objects += 1;
         current_object = 'p';
+        obj_list[list_i].type = 'p';
         printf("Working with a %clane\n", current_object);
       }
     else {
@@ -185,11 +201,34 @@ void read_scene(char* filename) {
             if ((strcmp(key, "width") == 0) || (strcmp(key, "height") == 0) || (strcmp(key, "radius") == 0)) {
                 //Depending on which is key, put value into that object value
                 double value = next_number(json);
+                printf("list_i is: %d\n", list_i);
+                if((strcmp(key, "width") == 0))
+                    main_camera.width = value;
+                if((strcmp(key, "height") == 0))
+                    main_camera.height = value;
+                if((strcmp(key, "radius") == 0))
+                    obj_list[list_i].radius = value;
                 //printf("%f\n", &value);
             }
             else if ((strcmp(key, "color") == 0) || (strcmp(key, "position") == 0) || (strcmp(key, "normal") == 0)) {
                 //Depending on which is key, put value into that object *value
                 double* value = next_vector(json);
+                printf("list_i is: %d\n", list_i);
+                if((strcmp(key, "color") == 0)){
+                    obj_list[list_i].color = malloc(3*sizeof(double));
+                    obj_list[list_i].color = value;
+                }
+
+                if((strcmp(key, "position") == 0)){
+                    obj_list[list_i].position = malloc(3*sizeof(double));
+                    obj_list[list_i].position = value;
+                }
+
+                if((strcmp(key, "normal") == 0)){
+                    obj_list[list_i].normal = malloc(3*sizeof(double));
+                    obj_list[list_i].normal = value;
+                }
+
             }
             else {
                 fprintf(stderr, "Error: Unknown property, \"%s\", on line %d.\n",
@@ -207,7 +246,11 @@ void read_scene(char* filename) {
     c = next_c(json);
     if (c == ',') {
         //No Operation, another object is coming up
+        //Iterate through list of objects by size of 1 object
         skip_ws(json);
+        if(current_object != 'c')
+            list_i += sizeof(scene_object);
+        printf("Incremented by %d\n", sizeof(scene_object));
     }
     else if (c == ']') {
         //Iterated through all objects
@@ -223,6 +266,9 @@ void read_scene(char* filename) {
 }
 
 int main(int c, char** argv) {
-  read_scene(argv[1]);
-  return 0;
+    obj_list = malloc(sizeof(scene_object)*128);
+    read_scene(argv[1]);
+    //list_i -= sizeof(scene_object);
+    printf("type: %c color: %f %f %f\n", obj_list[0].type, obj_list[0].color[0], obj_list[0].color[1], obj_list[0].color[2]);
+    return 0;
 }
