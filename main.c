@@ -2,20 +2,28 @@
 #include <stdlib.h>
 #include <string.h>
 #include "structs.h"
+#include "caster.c"
+#include <math.h>
 
 int line = 1;
 int num_camera;
 int total_objects;
 int list_i = 0;
 
-obj_sphere *sphere_list;
-obj_plane *plane_list;
+
 obj_camera main_camera;
 scene_object *obj_list;
+pixels *pixel_buffer;
 
-
-
-char current_object;
+static inline float square(float v){
+	return v*v;
+}
+static inline void normalize(float* v){
+	float len = sqrt(square(v[0] + square(v[1]) + square(v[2])));
+	v[0] /= len;
+	v[1] /= len;
+	v[2] /= len;
+}
 
 // next_c() wraps the getc() function and provides error checking and line
 // number maintenance
@@ -87,16 +95,16 @@ char* next_string(FILE* json) {
   return strdup(buffer);
 }
 
-double next_number(FILE* json) {
-  double value;
+float next_number(FILE* json) {
+  float value;
   fscanf(json, "%f", &value);
-  //printf("%f", value);
+  //printf("Value is: %f\n", value);
   // Error check this..
   return value;
 }
 
-double* next_vector(FILE* json) {
-  double* v = malloc(3*sizeof(double));
+float* next_vector(FILE* json) {
+  float* v = malloc(3*sizeof(float));
   expect_c(json, '[');
   skip_ws(json);
   v[0] = next_number(json);
@@ -113,10 +121,12 @@ double* next_vector(FILE* json) {
   return v;
 }
 
-
+//Error Test for if a value is not given
 void read_scene(char* filename) {
-  int c;
-  FILE* json = fopen(filename, "r");
+    int c;
+    char current_object;
+
+    FILE* json = fopen(filename, "r");
 
   if (json == NULL) {
     fprintf(stderr, "Error: Could not open file \"%s\"\n", filename);
@@ -200,8 +210,8 @@ void read_scene(char* filename) {
             skip_ws(json);
             if ((strcmp(key, "width") == 0) || (strcmp(key, "height") == 0) || (strcmp(key, "radius") == 0)) {
                 //Depending on which is key, put value into that object value
-                double value = next_number(json);
-                printf("list_i is: %d\n", list_i);
+                float value = next_number(json);
+                //printf("list_i is: %d\n", list_i);
                 if((strcmp(key, "width") == 0))
                     main_camera.width = value;
                 if((strcmp(key, "height") == 0))
@@ -212,20 +222,20 @@ void read_scene(char* filename) {
             }
             else if ((strcmp(key, "color") == 0) || (strcmp(key, "position") == 0) || (strcmp(key, "normal") == 0)) {
                 //Depending on which is key, put value into that object *value
-                double* value = next_vector(json);
-                printf("list_i is: %d\n", list_i);
+                float* value = next_vector(json);
+                //printf("list_i is: %d\n", list_i);
                 if((strcmp(key, "color") == 0)){
-                    obj_list[list_i].color = malloc(3*sizeof(double));
+                    obj_list[list_i].color = malloc(3*sizeof(float));
                     obj_list[list_i].color = value;
                 }
 
                 if((strcmp(key, "position") == 0)){
-                    obj_list[list_i].position = malloc(3*sizeof(double));
+                    obj_list[list_i].position = malloc(3*sizeof(float));
                     obj_list[list_i].position = value;
                 }
 
                 if((strcmp(key, "normal") == 0)){
-                    obj_list[list_i].normal = malloc(3*sizeof(double));
+                    obj_list[list_i].normal = malloc(3*sizeof(float));
                     obj_list[list_i].normal = value;
                 }
 
@@ -248,9 +258,12 @@ void read_scene(char* filename) {
         //No Operation, another object is coming up
         //Iterate through list of objects by size of 1 object
         skip_ws(json);
-        if(current_object != 'c')
+        //printf("Before increment, list_i is: %d\n", list_i);
+        if(current_object != 'c'){
             list_i += sizeof(scene_object);
-        printf("Incremented by %d\n", sizeof(scene_object));
+            //printf("Incremented by %d\n", sizeof(scene_object));
+        }
+
     }
     else if (c == ']') {
         //Iterated through all objects
@@ -265,10 +278,151 @@ void read_scene(char* filename) {
   }
 }
 
+float plane_intersection(float* Ro, float* Rd, float* position, float* normal){
+    normalize(normal);
+    float a = normal[0];
+    float b = normal[1];
+    float c = normal[2];
+    float d = -1;
+    float x0 = position[0];
+    float y0 = position[1];
+    float z0 = position[2];
+
+    //printf("a: %f b: %f c: %f x0: %f y0: %f z0: %f ", a,b,c,x0,y0,z0);
+    //printf("number : %f\n", (a*(Rd[0]) + b*(Rd[1]) + c*(Rd[2])));
+    //printf("Rd is: %f %f %f\n", Rd[0], Rd[1], Rd[2]);
+
+    //float numerator = (-a*Ro[0] + a*x0 -b*Ro[1] + b*y0 -c*Ro[2] + c*z0);
+    //float denominator = (a*Rd[0] + b*Rd[1] + c*Rd[2]);
+    float t = -(a*Ro[0] + b*Ro[1] + c*Ro[2] + d)/(a*Rd[0] + b*Rd[1] + c*Rd[2]);
+    //float t = numerator/denominator;
+    //float t;
+    //printf("t is: %f\n", t);
+    return t;
+}
+
+void raycast(float num_width, float num_height){
+    int x = 0;
+    int y = 0;
+    int i;
+
+    float Ro[3] = {0.0, 0.0, 0.0};
+    float center[2] = {0.0,0.0};
+
+    float width = main_camera.width;
+    float height = main_camera.height;
+    float N = num_width;
+    float M = num_height;
+    float pixel_width = width/N;
+    float pixel_height = height/M;
+    float p_z = 1;
+
+    for(y=0; y<M; y+=1){
+        float p_y = center[1] - height/2.0 + pixel_height*(y+0.5);
+
+        for(x=0; x<N; x+=1){
+            float p_x = center[0] - width/2.0 + pixel_width*(x+0.5);
+            float Rd[3] = {p_x, p_y, p_z};
+            //printf("Rd is: %f %f %f\n", Rd[0], Rd[1], Rd[2]);
+            normalize(Rd);
+            //printf("Normalized Rd is: %f %f %f\n", Rd[0], Rd[1], Rd[2]);
+
+            for(i=0; i<=list_i; i+=sizeof(scene_object)){
+                float t = 0;
+                if(obj_list[i].type == 's'){
+                        //printf("Hello\n");
+                        //printf("t is: %f\n", t);
+                }
+                if(obj_list[i].type == 'p'){
+                        t = plane_intersection(Ro, Rd, obj_list[i].position, obj_list[i].normal);
+                        //printf("t is: %f\n", t);
+                }
+                if(t > 0){
+                    //printf("%f\n", obj_list[i].color[2]);
+                    float r = obj_list[i].color[0] * 255.0;
+                    float g = obj_list[i].color[1] * 255.0;
+                    float b = obj_list[i].color[2] * 255.0;
+                    int int_r = (int)r;
+                    int int_g = (int)g;
+                    int int_b = (int)b;
+                    int pos = (int)(y*N +x);
+                    //printf("Position is: %d\n", pos);
+                    pixel_buffer[pos].r = int_r;
+                    pixel_buffer[pos].g = int_g;
+                    pixel_buffer[pos].b = int_b;
+                    //pixel_buffer[y*N + x].r = obj_list[i].color[0] * 255;
+                    //pixel_buffer[y*N + x].g = obj_list[i].color[1] * 255;
+                    //pixel_buffer[y*N + x].b = obj_list[i].color[2] * 255;
+                }
+            }
+
+
+
+
+
+
+
+        }
+    }
+
+
+    /*int j=0;
+    while(j <= list_i){
+        if(obj_list[j].type == 's'){
+            //Raycast sphere
+            printf("Sphere\n");
+        }
+        if(obj_list[j].type == 'p'){
+            //Raycast Plane
+            //plane_intersection(Ro,Rd, obj_list[j].color,obj_list[j].position,obj_list[j].normal);
+            printf("Plane\n");
+        }
+        j += sizeof(scene_object);
+    }*/
+}
+
+int write(){
+    FILE *fp;
+    char magic_number[2] = {'P', '6'};
+    int width = 300;
+    int height = 300;
+    int j;
+
+    fp = fopen("image.ppm", "wb");
+
+    /*if(fp == 0){
+        fprintf(stderr, "Error: Unable to create file '%s' \n", output_file);
+        exit(1);
+    }*/
+    fwrite(magic_number, sizeof(magic_number), sizeof(magic_number)-1, fp);
+    fprintf(fp,"\n%d %d", width, height);
+    fprintf(fp,"\n%d", 255);
+
+    fprintf(fp,"\n");
+            for (j=0; j<width*height; j++){
+                    /*if(j%70 == 0 && j != 0){
+                        fwrite("\n", 1, 1, fp);
+                    }*/
+                    fwrite(&pixel_buffer[j].r,1,1, fp);
+                    fwrite(&pixel_buffer[j].g,1,1, fp);
+                    fwrite(&pixel_buffer[j].b,1,1, fp);
+            }
+
+    return 0;
+}
+
 int main(int c, char** argv) {
     obj_list = malloc(sizeof(scene_object)*128);
+    float N = 300;
+    float M = 300;
+    pixel_buffer = (pixels*)malloc(sizeof(pixels)*N*M);
+    memset(pixel_buffer, 255, 3*N*M);
+
     read_scene(argv[1]);
+    printf("list_i is now: %d\n", list_i);
+    raycast(N, M);
+    write();
     //list_i -= sizeof(scene_object);
-    printf("type: %c color: %f %f %f\n", obj_list[0].type, obj_list[0].color[0], obj_list[0].color[1], obj_list[0].color[2]);
+    //printf("type: %c color: %f %f %f\n", obj_list[0].type, obj_list[0].color[0], obj_list[0].color[1], obj_list[0].color[2]);
     return 0;
 }

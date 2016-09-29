@@ -13,7 +13,19 @@
 	{
 		"type": "plane",
 		"color": [0, 0, 1.0],
+		"position": [0, 0.5, 0.5],
+		"normal": [0, 1, 1]
+	},
+	{
+		"type": "plane",
+		"color": [1.0, 0, 1.0],
 		"position": [0, 0, 0],
 		"normal": [0, 1, 0]
+	},
+	{
+		"type": "plane",
+		"color": [0, 1.0, 0],
+		"position": [1, 0, 1],
+		"normal": [1, 1, 0]
 	}
 ]

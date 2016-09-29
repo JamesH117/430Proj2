@@ -1,5 +1,5 @@
 typedef struct obj_camera{
-    double width, height;
+    float width, height;
 } obj_camera;
 
 typedef struct obj_sphere{
@@ -16,10 +16,13 @@ typedef struct obj_plane{
 
 typedef struct scene_object{
         char type;
-        double *color;
-        double *position;
-        double *normal;
-        double radius;
+        float *color;
+        float *position;
+        float *normal;
+        float radius;
 
 } scene_object;
+typedef struct pixels{
+    unsigned char r,g,b;
+} pixels;
 
