@@ -24,6 +24,10 @@ static inline void normalize(float* v){
 	v[1] /= len;
 	v[2] /= len;
 }
+static inline float vector_length(float* v){
+    return sqrt(square(v[0])+square(v[1])+square(v[2]));
+
+}
 
 // next_c() wraps the getc() function and provides error checking and line
 // number maintenance
@@ -283,6 +287,8 @@ float plane_intersection(float* Ro, float* Rd, float* position, float* normal){
     float a = normal[0];
     float b = normal[1];
     float c = normal[2];
+    //float d = vector_length(position);
+    //Shouldnt d always be -1?
     float d = -1;
     float x0 = position[0];
     float y0 = position[1];
@@ -294,11 +300,37 @@ float plane_intersection(float* Ro, float* Rd, float* position, float* normal){
 
     //float numerator = (-a*Ro[0] + a*x0 -b*Ro[1] + b*y0 -c*Ro[2] + c*z0);
     //float denominator = (a*Rd[0] + b*Rd[1] + c*Rd[2]);
+    float den = (a*Rd[0] + b*Rd[1] + c*Rd[2]);
+    //if(den == 0) return -1;
     float t = -(a*Ro[0] + b*Ro[1] + c*Ro[2] + d)/(a*Rd[0] + b*Rd[1] + c*Rd[2]);
     //float t = numerator/denominator;
     //float t;
     //printf("t is: %f\n", t);
     return t;
+}
+
+float sphere_intersection(float* Ro, float* Rd, float* position, float radius){
+    float x0 = position[0];
+    float y0 = position[1];
+    float z0 = position[2];
+
+    float a = square(Rd[0])+square(Rd[1])+square(Rd[2]);
+    float b = 2*(Rd[0]*(Ro[0]-x0) + Rd[1]*(Ro[1]-y0) + Rd[2]*(Ro[2]-z0));
+    float c = square((Ro[0]-x0)) + square((Ro[1]-y0)) + square((Ro[2]-z0)) - square(radius);
+
+    /*if(a != (float)1){
+        fprintf(stderr, "Ray direction for Sphere was not normalized\n");
+        exit(1);
+        }*/
+
+    float t0 = (-b - sqrt((square(b) - 4*c)))/2;
+    float t1 = (-b + sqrt((square(b) - 4*c)))/2;
+
+    if(t0 < t1) return t0;
+    if(t0 > t1) return t1;
+    if(t0>0) return t0;
+    if(t1>0) return t1;
+
 }
 
 void raycast(float num_width, float num_height){
@@ -330,6 +362,7 @@ void raycast(float num_width, float num_height){
             for(i=0; i<=list_i; i+=sizeof(scene_object)){
                 float t = 0;
                 if(obj_list[i].type == 's'){
+                        t = sphere_intersection(Ro, Rd, obj_list[i].position, obj_list[i].radius);
                         //printf("Hello\n");
                         //printf("t is: %f\n", t);
                 }
@@ -381,11 +414,11 @@ void raycast(float num_width, float num_height){
     }*/
 }
 
-int write(){
+int write(int w, int h){
     FILE *fp;
     char magic_number[2] = {'P', '6'};
-    int width = 300;
-    int height = 300;
+    int width = w;
+    int height = h;
     int j;
 
     fp = fopen("image.ppm", "wb");
@@ -413,15 +446,15 @@ int write(){
 
 int main(int c, char** argv) {
     obj_list = malloc(sizeof(scene_object)*128);
-    float N = 300;
-    float M = 300;
+    float N = 1000;
+    float M = 1000;
     pixel_buffer = (pixels*)malloc(sizeof(pixels)*N*M);
     memset(pixel_buffer, 255, 3*N*M);
 
     read_scene(argv[1]);
     printf("list_i is now: %d\n", list_i);
     raycast(N, M);
-    write();
+    write(N, M);
     //list_i -= sizeof(scene_object);
     //printf("type: %c color: %f %f %f\n", obj_list[0].type, obj_list[0].color[0], obj_list[0].color[1], obj_list[0].color[2]);
     return 0;
