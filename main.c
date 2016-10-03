@@ -14,16 +14,16 @@ obj_camera main_camera;
 scene_object *obj_list;
 pixels *pixel_buffer;
 
-static inline float square(float v){
+static inline double square(double v){
 	return v*v;
 }
-static inline void normalize(float* v){
-	float len = sqrt(square(v[0] + square(v[1]) + square(v[2])));
+static inline void normalize(double* v){
+	double len = sqrt(square(v[0] + square(v[1]) + square(v[2])));
 	v[0] /= len;
 	v[1] /= len;
 	v[2] /= len;
 }
-static inline float vector_length(float* v){
+static inline double vector_length(double* v){
     return sqrt(square(v[0])+square(v[1])+square(v[2]));
 
 }
@@ -98,16 +98,16 @@ char* next_string(FILE* json) {
   return strdup(buffer);
 }
 
-float next_number(FILE* json) {
-  float value;
-  fscanf(json, "%f", &value);
-  //printf("Value is: %f\n", value);
+double next_number(FILE* json) {
+  double value;
+  fscanf(json, "%lf", &value);
+  //printf("Value is: %lf\n", value);
   // Error check this..
   return value;
 }
 
-float* next_vector(FILE* json) {
-  float* v = malloc(3*sizeof(float));
+double* next_vector(FILE* json) {
+  double* v = malloc(3*sizeof(double));
   expect_c(json, '[');
   skip_ws(json);
   v[0] = next_number(json);
@@ -213,7 +213,7 @@ void read_scene(char* filename) {
             skip_ws(json);
             if ((strcmp(key, "width") == 0) || (strcmp(key, "height") == 0) || (strcmp(key, "radius") == 0)) {
                 //Depending on which is key, put value into that object value
-                float value = next_number(json);
+                double value = next_number(json);
                 //printf("list_i is: %d\n", list_i);
                 if((strcmp(key, "width") == 0))
                     main_camera.width = value;
@@ -221,24 +221,24 @@ void read_scene(char* filename) {
                     main_camera.height = value;
                 if((strcmp(key, "radius") == 0))
                     obj_list[list_i].radius = value;
-                //printf("%f\n", &value);
+                //printf("%lf\n", &value);
             }
             else if ((strcmp(key, "color") == 0) || (strcmp(key, "position") == 0) || (strcmp(key, "normal") == 0)) {
                 //Depending on which is key, put value into that object *value
-                float* value = next_vector(json);
+                double* value = next_vector(json);
                 //printf("list_i is: %d\n", list_i);
                 if((strcmp(key, "color") == 0)){
-                    obj_list[list_i].color = malloc(3*sizeof(float));
+                    obj_list[list_i].color = malloc(3*sizeof(double));
                     obj_list[list_i].color = value;
                 }
 
                 if((strcmp(key, "position") == 0)){
-                    obj_list[list_i].position = malloc(3*sizeof(float));
+                    obj_list[list_i].position = malloc(3*sizeof(double));
                     obj_list[list_i].position = value;
                 }
 
                 if((strcmp(key, "normal") == 0)){
-                    obj_list[list_i].normal = malloc(3*sizeof(float));
+                    obj_list[list_i].normal = malloc(3*sizeof(double));
                     obj_list[list_i].normal = value;
                 }
 
@@ -281,59 +281,59 @@ void read_scene(char* filename) {
   }
 }
 
-float plane_intersection(float* Ro, float* Rd, float* position, float* normal){
+double plane_intersection(double* Ro, double* Rd, double* position, double* normal){
     normalize(normal);
-    float a = normal[0];
-    float b = normal[1];
-    float c = normal[2];
+    double a = normal[0];
+    double b = normal[1];
+    double c = normal[2];
 
     //D is the length of the shortest line segment from the origin to the plane
     //D is distance from origin/camera to the plane
 
-    //float d = vector_length(position);
-    //float d = -(normal vector *dot* Vo) where Vo is a point on the plane
+    //double d = vector_length(position);
+    //double d = -(normal vector *dot* Vo) where Vo is a point on the plane
 
-    float x0 = position[0];
-    float y0 = position[1];
-    float z0 = position[2];
+    double x0 = position[0];
+    double y0 = position[1];
+    double z0 = position[2];
 
-    float d = -(a*x0 + b*y0 + c*z0);
+    double d = -(a*x0 + b*y0 + c*z0);
 
-    //float numerator = (-a*Ro[0] + a*x0 -b*Ro[1] + b*y0 -c*Ro[2] + c*z0);
-    //float denominator = (a*Rd[0] + b*Rd[1] + c*Rd[2]);
-    float den = (a*Rd[0] + b*Rd[1] + c*Rd[2]);
+    //double numerator = (-a*Ro[0] + a*x0 -b*Ro[1] + b*y0 -c*Ro[2] + c*z0);
+    //double denominator = (a*Rd[0] + b*Rd[1] + c*Rd[2]);
+    double den = (a*Rd[0] + b*Rd[1] + c*Rd[2]);
     if(den == 0.0) return -1;
-    float t = -(a*Ro[0] + b*Ro[1] + c*Ro[2] + d)/(a*Rd[0] + b*Rd[1] + c*Rd[2]);
-    //float t = numerator/denominator;
-    //float t;
-    //printf("t is: %f\n", t);
+    double t = -(a*Ro[0] + b*Ro[1] + c*Ro[2] + d)/(a*Rd[0] + b*Rd[1] + c*Rd[2]);
+    //double t = numerator/denominator;
+    //double t;
+    //printf("t is: %lf\n", t);
     return t;
 }
 
-float sphere_intersection(float* Ro, float* Rd, float* position, float radius){
+double sphere_intersection(double* Ro, double* Rd, double* position, double radius){
     //Center points of sphere
-    float xc = position[0];
-    float yc = position[1];
-    float zc = position[2];
-    //printf("xc: %f, yc: %f, zc: %f\n", xc, yc, zc);
+    double xc = position[0];
+    double yc = position[1];
+    double zc = position[2];
+    //printf("xc: %lf, yc: %lf, zc: %lf\n", xc, yc, zc);
 
     //If you normalize Rd, you don't need to worry about a
-    float a = square(Rd[0])+square(Rd[1])+square(Rd[2]);
-    float b = 2*(Rd[0]*(Ro[0]-xc) + Rd[1]*(Ro[1]-yc) + Rd[2]*(Ro[2]-zc));
-    float c = (square((Ro[0]-xc)) + square((Ro[1]-yc)) + square((Ro[2]-zc)) - square(radius));
+    double a = square(Rd[0])+square(Rd[1])+square(Rd[2]);
+    double b = 2*(Rd[0]*(Ro[0]-xc) + Rd[1]*(Ro[1]-yc) + Rd[2]*(Ro[2]-zc));
+    double c = (square((Ro[0]-xc)) + square((Ro[1]-yc)) + square((Ro[2]-zc)) - square(radius));
 
-    /*if(a != (float)1){
+    /*if(a != (double)1){
         fprintf(stderr, "Ray direction for Sphere was not normalized\n");
         exit(1);
         }*/
 
-    float desc = (square(b) - 4*a*c);
+    double desc = (square(b) - 4*a*c);
 
     //If descriminate is negative, no intersection
     if(desc < 0.0) return -1;
 
-    float t0 = ((-b - sqrt(square(b) - 4.0*c*a))/(2.0*a));
-    float t1 = ((-b + sqrt(square(b) - 4.0*c*a))/(2.0*a));
+    double t0 = ((-b - sqrt(square(b) - 4.0*c*a))/(2.0*a));
+    double t1 = ((-b + sqrt(square(b) - 4.0*c*a))/(2.0*a));
 
     //If descriminant is negative, imaginary number, dont return
     //If t0 is negative don't return it, return t1
@@ -349,59 +349,76 @@ float sphere_intersection(float* Ro, float* Rd, float* position, float radius){
 
 }
 
-void raycast(float num_width, float num_height){
+void raycast(double num_width, double num_height){
     int x = 0;
     int y = 0;
     int i;
 
-    float Ro[3] = {0.0, 0.0, 0.0};
+    double Ro[3] = {0.0, 0.0, 0.0};
 
 
-    float width = main_camera.width;
-    float height = main_camera.height;
-    float N = num_width;
-    float M = num_height;
-    float pixel_width = width/N;
-    float pixel_height = height/M;
+    double width = main_camera.width;
+    double height = main_camera.height;
+    double N = num_width;
+    double M = num_height;
+    double pixel_width = width/N;
+    double pixel_height = height/M;
 
-    float center[2] = {0.0, 0.0};
+    double center[2] = {0.0, 0.0};
 
 
     //c_xyz is center of the view plane
-    float p_z = 1;
+    double p_z = 1;
 
     for(y=0; y<M; y+=1){
 
-        float p_y = center[1] - height/2.0 + pixel_height*(y+0.5);
+        double p_y = center[1] - height/2.0 + pixel_height*(y+0.5);
 
         for(x=0; x<N; x+=1){
 
-            float p_x = center[0] - width/2.0 + pixel_width*(x+0.5);
-            float Rd[3] = {p_x, p_y, p_z};
-            //printf("Rd is: %f %f %f\n", Rd[0], Rd[1], Rd[2]);
+            double p_x = center[0] - width/2.0 + pixel_width*(x+0.5);
+            double Rd[3] = {p_x, p_y, p_z};
+            //printf("Rd is: %lf %lf %lf\n", Rd[0], Rd[1], Rd[2]);
             normalize(Rd);
-            //printf("Normalized Rd is: %f %f %f\n", Rd[0], Rd[1], Rd[2]);
+            //printf("Normalized Rd is: %lf %lf %lf\n", Rd[0], Rd[1], Rd[2]);
 
+            double best_t = INFINITY;
+            double *best_c;
             for(i=0; i<=list_i; i+=sizeof(scene_object)){
-                float t = 0;
+                double t = 0;
                 if(obj_list[i].type == 's'){
                         t = sphere_intersection(Ro, Rd, obj_list[i].position, obj_list[i].radius);
                         //printf("Hello\n");
-                        //printf("t is: %f\n", t);
+                        if(t>0){
+                            //printf("sphere t is: %lf\n", t);
+                        }
+
                 }
                 if(obj_list[i].type == 'p'){
                         t = plane_intersection(Ro, Rd, obj_list[i].position, obj_list[i].normal);
-                        //printf("t is: %f\n", t);
+
+                        //if(best_t != INFINITY) printf("plane t is: %lf\n", t);
                 }
-                if(t > 0){
-                    //printf("%f\n", obj_list[i].color[2]);
-                    float r = obj_list[i].color[0] * 255.0;
-                    float g = obj_list[i].color[1] * 255.0;
-                    float b = obj_list[i].color[2] * 255.0;
+                if(t > 0 && t < best_t){
+                    best_t = t;
+
+                    best_c = obj_list[i].color;
+                    //printf("obj_list[i].color[0]: %lf\n", obj_list[i].color[0]);
+
+                    //printf("best_c[0] is: %lf\n", best_c[0]);
+                }
+
+
+                if(best_t > 0 && best_t != INFINITY){
+                //if(t>0){
+                    //printf("%lf\n", obj_list[i].color[2]);
+                    double r = best_c[0]*255;
+                    double g = best_c[1]*255;
+                    double b = best_c[2] * 255;
                     int int_r = (int)r;
                     int int_g = (int)g;
                     int int_b = (int)b;
-                    int pos = (int)(y*N +x);
+                    int pos = (int)((M - y -1)*N +x);
                     //printf("Position is: %d\n", pos);
                     pixel_buffer[pos].r = int_r;
                     pixel_buffer[pos].g = int_g;
@@ -451,8 +468,8 @@ int main(int argc, char** argv) {
         exit(1);
     }
     obj_list = malloc(sizeof(scene_object)*128);
-    float N = (float)atoi(argv[1]);
-    float M = (float)atoi(argv[2]);
+    double N = (double)atoi(argv[1]);
+    double M = (double)atoi(argv[2]);
     pixel_buffer = (pixels*)malloc(sizeof(pixels)*N*M);
     memset(pixel_buffer, 0, 3*N*M);
 
@@ -461,6 +478,6 @@ int main(int argc, char** argv) {
     raycast(N, M);
     write(N, M, argv[4]);
     //list_i -= sizeof(scene_object);
-    //printf("type: %c color: %f %f %f\n", obj_list[0].type, obj_list[0].color[0], obj_list[0].color[1], obj_list[0].color[2]);
+    //printf("type: %c color: %lf %lf %lf\n", obj_list[0].type, obj_list[0].color[0], obj_list[0].color[1], obj_list[0].color[2]);
     return 0;
 }
