@@ -2,7 +2,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include "structs.h"
-#include "caster.c"
 #include <math.h>
 
 int line = 1;
@@ -287,21 +286,23 @@ float plane_intersection(float* Ro, float* Rd, float* position, float* normal){
     float a = normal[0];
     float b = normal[1];
     float c = normal[2];
+
+    //D is the length of the shortest line segment from the origin to the plane
+    //D is distance from origin/camera to the plane
+
     //float d = vector_length(position);
-    //Shouldnt d always be -1?
-    float d = -1;
+    //float d = -(normal vector *dot* Vo) where Vo is a point on the plane
+
     float x0 = position[0];
     float y0 = position[1];
     float z0 = position[2];
 
-    //printf("a: %f b: %f c: %f x0: %f y0: %f z0: %f ", a,b,c,x0,y0,z0);
-    //printf("number : %f\n", (a*(Rd[0]) + b*(Rd[1]) + c*(Rd[2])));
-    //printf("Rd is: %f %f %f\n", Rd[0], Rd[1], Rd[2]);
+    float d = -(a*x0 + b*y0 + c*z0);
 
     //float numerator = (-a*Ro[0] + a*x0 -b*Ro[1] + b*y0 -c*Ro[2] + c*z0);
     //float denominator = (a*Rd[0] + b*Rd[1] + c*Rd[2]);
     float den = (a*Rd[0] + b*Rd[1] + c*Rd[2]);
-    //if(den == 0) return -1;
+    if(den == 0.0) return -1;
     float t = -(a*Ro[0] + b*Ro[1] + c*Ro[2] + d)/(a*Rd[0] + b*Rd[1] + c*Rd[2]);
     //float t = numerator/denominator;
     //float t;
@@ -310,26 +311,41 @@ float plane_intersection(float* Ro, float* Rd, float* position, float* normal){
 }
 
 float sphere_intersection(float* Ro, float* Rd, float* position, float radius){
-    float x0 = position[0];
-    float y0 = position[1];
-    float z0 = position[2];
+    //Center points of sphere
+    float xc = position[0];
+    float yc = position[1];
+    float zc = position[2];
+    //printf("xc: %f, yc: %f, zc: %f\n", xc, yc, zc);
 
+    //If you normalize Rd, you don't need to worry about a
     float a = square(Rd[0])+square(Rd[1])+square(Rd[2]);
-    float b = 2*(Rd[0]*(Ro[0]-x0) + Rd[1]*(Ro[1]-y0) + Rd[2]*(Ro[2]-z0));
-    float c = square((Ro[0]-x0)) + square((Ro[1]-y0)) + square((Ro[2]-z0)) - square(radius);
+    float b = 2*(Rd[0]*(Ro[0]-xc) + Rd[1]*(Ro[1]-yc) + Rd[2]*(Ro[2]-zc));
+    float c = (square((Ro[0]-xc)) + square((Ro[1]-yc)) + square((Ro[2]-zc)) - square(radius));
 
     /*if(a != (float)1){
         fprintf(stderr, "Ray direction for Sphere was not normalized\n");
         exit(1);
         }*/
 
-    float t0 = (-b - sqrt((square(b) - 4*c)))/2;
-    float t1 = (-b + sqrt((square(b) - 4*c)))/2;
+    float desc = (square(b) - 4*a*c);
 
-    if(t0 < t1) return t0;
-    if(t0 > t1) return t1;
-    if(t0>0) return t0;
-    if(t1>0) return t1;
+    //If descriminate is negative, no intersection
+    if(desc < 0.0) return -1;
+
+    float t0 = ((-b - sqrt(square(b) - 4.0*c*a))/(2.0*a));
+    float t1 = ((-b + sqrt(square(b) - 4.0*c*a))/(2.0*a));
+
+    //If descriminant is negative, imaginary number, dont return
+    //If t0 is negative don't return it, return t1
+    //Return t0 first
+    //Return t1 next
+    if(t0 > 0.0)return t0;
+    if(t1> 0.0) return t1;
+
+    //if(t0 < 0) return t1;
+    //if(t0 < t1) return t0;
+    return -1;
+
 
 }
 
@@ -339,7 +355,7 @@ void raycast(float num_width, float num_height){
     int i;
 
     float Ro[3] = {0.0, 0.0, 0.0};
-    float center[2] = {0.0,0.0};
+
 
     float width = main_camera.width;
     float height = main_camera.height;
@@ -347,12 +363,19 @@ void raycast(float num_width, float num_height){
     float M = num_height;
     float pixel_width = width/N;
     float pixel_height = height/M;
+
+    float center[2] = {0.0, 0.0};
+
+
+    //c_xyz is center of the view plane
     float p_z = 1;
 
     for(y=0; y<M; y+=1){
+
         float p_y = center[1] - height/2.0 + pixel_height*(y+0.5);
 
         for(x=0; x<N; x+=1){
+
             float p_x = center[0] - width/2.0 + pixel_width*(x+0.5);
             float Rd[3] = {p_x, p_y, p_z};
             //printf("Rd is: %f %f %f\n", Rd[0], Rd[1], Rd[2]);
@@ -388,45 +411,23 @@ void raycast(float num_width, float num_height){
                     //pixel_buffer[y*N + x].b = obj_list[i].color[2] * 255;
                 }
             }
-
-
-
-
-
-
-
         }
     }
-
-
-    /*int j=0;
-    while(j <= list_i){
-        if(obj_list[j].type == 's'){
-            //Raycast sphere
-            printf("Sphere\n");
-        }
-        if(obj_list[j].type == 'p'){
-            //Raycast Plane
-            //plane_intersection(Ro,Rd, obj_list[j].color,obj_list[j].position,obj_list[j].normal);
-            printf("Plane\n");
-        }
-        j += sizeof(scene_object);
-    }*/
 }
 
-int write(int w, int h){
+int write(int w, int h, FILE* output_image){
     FILE *fp;
     char magic_number[2] = {'P', '6'};
     int width = w;
     int height = h;
     int j;
 
-    fp = fopen("image.ppm", "wb");
+    fp = fopen(output_image, "wb");
 
-    /*if(fp == 0){
-        fprintf(stderr, "Error: Unable to create file '%s' \n", output_file);
+    if(fp == 0){
+        fprintf(stderr, "Error: Unable to create file for output image.\n");
         exit(1);
-    }*/
+    }
     fwrite(magic_number, sizeof(magic_number), sizeof(magic_number)-1, fp);
     fprintf(fp,"\n%d %d", width, height);
     fprintf(fp,"\n%d", 255);
@@ -444,17 +445,21 @@ int write(int w, int h){
     return 0;
 }
 
-int main(int c, char** argv) {
+int main(int argc, char** argv) {
+    if(argc != 5){
+        fprintf(stderr, "Error: Not all arguments were provided or too many were given.\n");
+        exit(1);
+    }
     obj_list = malloc(sizeof(scene_object)*128);
-    float N = 1000;
-    float M = 1000;
+    float N = (float)atoi(argv[1]);
+    float M = (float)atoi(argv[2]);
     pixel_buffer = (pixels*)malloc(sizeof(pixels)*N*M);
-    memset(pixel_buffer, 255, 3*N*M);
+    memset(pixel_buffer, 0, 3*N*M);
 
-    read_scene(argv[1]);
-    printf("list_i is now: %d\n", list_i);
+    read_scene(argv[3]);
+    //printf("list_i is now: %d\n", list_i);
     raycast(N, M);
-    write(N, M);
+    write(N, M, argv[4]);
     //list_i -= sizeof(scene_object);
     //printf("type: %c color: %f %f %f\n", obj_list[0].type, obj_list[0].color[0], obj_list[0].color[1], obj_list[0].color[2]);
     return 0;

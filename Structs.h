@@ -17,6 +17,9 @@ typedef struct obj_plane{
 typedef struct scene_object{
         char type;
         float *color;
+        //What is position relative to?
+        //Position is relative from origin in 3D space
+        //Camera is at origin and looking down positive z
         float *position;
         float *normal;
         float radius;
