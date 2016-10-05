@@ -174,7 +174,7 @@ void read_scene(char* filename) {
         //Working with camera object
         //Put future values into camera object
         current_object = 'c';
-        printf("Working with a %camera\n", current_object);
+        //printf("Working with a %camera\n", current_object);
       }
     else if (strcmp(value, "sphere") == 0) {
         //Working with Sphere object
@@ -182,7 +182,7 @@ void read_scene(char* filename) {
         total_objects += 1;
         current_object = 's';
         obj_list[list_i].type = 's';
-        printf("Working with a %cphere\n", current_object);
+        //printf("Working with a %cphere\n", current_object);
       }
     else if (strcmp(value, "plane") == 0) {
         //Working with Plane object
@@ -190,15 +190,18 @@ void read_scene(char* filename) {
         total_objects += 1;
         current_object = 'p';
         obj_list[list_i].type = 'p';
-        printf("Working with a %clane\n", current_object);
+        //printf("Working with a %clane\n", current_object);
       }
     else {
         fprintf(stderr, "Error: Unknown type, \"%s\", on line number %d.\n", value, line);
         exit(1);
       }
     skip_ws(json);
+    int cam_vars = 0;
+	int obj_vars = 0;
     while (1) {
 	// , }
+
         c = next_c(json);
         if (c == '}') {
             // stop parsing this object
@@ -214,39 +217,55 @@ void read_scene(char* filename) {
             if ((strcmp(key, "width") == 0) || (strcmp(key, "height") == 0) || (strcmp(key, "radius") == 0)) {
                 //Depending on which is key, put value into that object value
                 double value = next_number(json);
-                //printf("list_i is: %d\n", list_i);
-                if((strcmp(key, "width") == 0))
+
+                if((strcmp(key, "width") == 0)){
                     main_camera.width = value;
-                if((strcmp(key, "height") == 0))
+                    cam_vars+=1;
+                }
+
+                if((strcmp(key, "height") == 0)){
                     main_camera.height = value;
-                if((strcmp(key, "radius") == 0))
+                    cam_vars +=1;
+                }
+
+                if((strcmp(key, "radius") == 0)){
                     obj_list[list_i].radius = value;
-                //printf("%lf\n", &value);
+                    obj_vars +=1;
+                }
+
+
             }
             else if ((strcmp(key, "color") == 0) || (strcmp(key, "position") == 0) || (strcmp(key, "normal") == 0)) {
                 //Depending on which is key, put value into that object *value
                 double* value = next_vector(json);
-                //printf("list_i is: %d\n", list_i);
+
                 if((strcmp(key, "color") == 0)){
                     obj_list[list_i].color = malloc(3*sizeof(double));
                     obj_list[list_i].color = value;
+                    if(obj_list[list_i].color[0] > 1 || obj_list[list_i].color[3] > 1 || obj_list[list_i].color[2] > 1){
+                        fprintf(stderr, "ERROR: Some color value is greater than 1.\n");
+                        exit(1);
+                    }
+                    obj_vars +=1;
                 }
 
                 if((strcmp(key, "position") == 0)){
                     obj_list[list_i].position = malloc(3*sizeof(double));
                     obj_list[list_i].position = value;
+                    obj_vars +=1;
                 }
 
                 if((strcmp(key, "normal") == 0)){
                     obj_list[list_i].normal = malloc(3*sizeof(double));
                     obj_list[list_i].normal = value;
+                    obj_vars +=1;
                 }
 
             }
             else {
                 fprintf(stderr, "Error: Unknown property, \"%s\", on line %d.\n",
                 key, line);
-                //char* value = next_string(json);
+
             }
             skip_ws(json);
         }
@@ -264,8 +283,21 @@ void read_scene(char* filename) {
         //printf("Before increment, list_i is: %d\n", list_i);
         if(current_object != 'c'){
             list_i += sizeof(scene_object);
+            if(obj_vars != 3){
+                fprintf(stderr, "Error: One of your objects does not have the correct amount of parameters to render, each object needs only 3!\n");
+                exit(1);
+            }
+            obj_vars = 0;
             //printf("Incremented by %d\n", sizeof(scene_object));
         }
+        if(current_object == 'c'){
+            if(cam_vars != 2){
+            fprintf(stderr, "ERROR: Your camera has either too little parameters or too many parameters.\n");
+            exit(1);
+            }
+        cam_vars = 0;
+        }
+
 
     }
     else if (c == ']') {
@@ -290,8 +322,6 @@ double plane_intersection(double* Ro, double* Rd, double* position, double* norm
     //D is the length of the shortest line segment from the origin to the plane
     //D is distance from origin/camera to the plane
 
-    //double d = vector_length(position);
-    //double d = -(normal vector *dot* Vo) where Vo is a point on the plane
 
     double x0 = position[0];
     double y0 = position[1];
@@ -299,14 +329,11 @@ double plane_intersection(double* Ro, double* Rd, double* position, double* norm
 
     double d = -(a*x0 + b*y0 + c*z0);
 
-    //double numerator = (-a*Ro[0] + a*x0 -b*Ro[1] + b*y0 -c*Ro[2] + c*z0);
-    //double denominator = (a*Rd[0] + b*Rd[1] + c*Rd[2]);
+
     double den = (a*Rd[0] + b*Rd[1] + c*Rd[2]);
     if(den == 0.0) return -1;
     double t = -(a*Ro[0] + b*Ro[1] + c*Ro[2] + d)/(a*Rd[0] + b*Rd[1] + c*Rd[2]);
-    //double t = numerator/denominator;
-    //double t;
-    //printf("t is: %lf\n", t);
+
     return t;
 }
 
@@ -315,17 +342,11 @@ double sphere_intersection(double* Ro, double* Rd, double* position, double radi
     double xc = position[0];
     double yc = position[1];
     double zc = position[2];
-    //printf("xc: %lf, yc: %lf, zc: %lf\n", xc, yc, zc);
 
-    //If you normalize Rd, you don't need to worry about a
+
     double a = square(Rd[0])+square(Rd[1])+square(Rd[2]);
     double b = 2*(Rd[0]*(Ro[0]-xc) + Rd[1]*(Ro[1]-yc) + Rd[2]*(Ro[2]-zc));
     double c = (square((Ro[0]-xc)) + square((Ro[1]-yc)) + square((Ro[2]-zc)) - square(radius));
-
-    /*if(a != (double)1){
-        fprintf(stderr, "Ray direction for Sphere was not normalized\n");
-        exit(1);
-        }*/
 
     double desc = (square(b) - 4*a*c);
 
@@ -342,8 +363,7 @@ double sphere_intersection(double* Ro, double* Rd, double* position, double radi
     if(t0 > 0.0)return t0;
     if(t1> 0.0) return t1;
 
-    //if(t0 < 0) return t1;
-    //if(t0 < t1) return t0;
+
     return -1;
 
 
@@ -354,6 +374,7 @@ void raycast(double num_width, double num_height){
     int y = 0;
     int i;
 
+    //Where the camera is sitting
     double Ro[3] = {0.0, 0.0, 0.0};
 
 
@@ -364,10 +385,13 @@ void raycast(double num_width, double num_height){
     double pixel_width = width/N;
     double pixel_height = height/M;
 
+    //Center of the view plane
     double center[2] = {0.0, 0.0};
 
 
     //c_xyz is center of the view plane
+
+    //Distance from camera to view plane
     double p_z = 1;
 
     for(y=0; y<M; y+=1){
@@ -388,30 +412,19 @@ void raycast(double num_width, double num_height){
                 double t = 0;
                 if(obj_list[i].type == 's'){
                         t = sphere_intersection(Ro, Rd, obj_list[i].position, obj_list[i].radius);
-                        //printf("Hello\n");
-                        if(t>0){
-                            //printf("sphere t is: %lf\n", t);
-                        }
-
                 }
                 if(obj_list[i].type == 'p'){
                         t = plane_intersection(Ro, Rd, obj_list[i].position, obj_list[i].normal);
-
-                        //if(best_t != INFINITY) printf("plane t is: %lf\n", t);
                 }
                 if(t > 0 && t < best_t){
                     best_t = t;
 
                     best_c = obj_list[i].color;
-                    //printf("obj_list[i].color[0]: %lf\n", obj_list[i].color[0]);
-
-                    //printf("best_c[0] is: %lf\n", best_c[0]);
                 }
 
 
                 if(best_t > 0 && best_t != INFINITY){
-                //if(t>0){
-                    //printf("%lf\n", obj_list[i].color[2]);
+
                     double r = best_c[0]*255;
                     double g = best_c[1]*255;
                     double b = best_c[2] * 255;
@@ -419,13 +432,11 @@ void raycast(double num_width, double num_height){
                     int int_g = (int)g;
                     int int_b = (int)b;
                     int pos = (int)((M - y -1)*N +x);
-                    //printf("Position is: %d\n", pos);
+
                     pixel_buffer[pos].r = int_r;
                     pixel_buffer[pos].g = int_g;
                     pixel_buffer[pos].b = int_b;
-                    //pixel_buffer[y*N + x].r = obj_list[i].color[0] * 255;
-                    //pixel_buffer[y*N + x].g = obj_list[i].color[1] * 255;
-                    //pixel_buffer[y*N + x].b = obj_list[i].color[2] * 255;
+
                 }
             }
         }
@@ -474,10 +485,9 @@ int main(int argc, char** argv) {
     memset(pixel_buffer, 0, 3*N*M);
 
     read_scene(argv[3]);
-    //printf("list_i is now: %d\n", list_i);
+
     raycast(N, M);
     write(N, M, argv[4]);
-    //list_i -= sizeof(scene_object);
-    //printf("type: %c color: %lf %lf %lf\n", obj_list[0].type, obj_list[0].color[0], obj_list[0].color[1], obj_list[0].color[2]);
+
     return 0;
 }
