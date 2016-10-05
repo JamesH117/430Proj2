@@ -5,10 +5,14 @@ Jh2377
 Project 2 - Raycaster
 
 
-Run the Makefile to create the executable for racasting.
+Run the Makefile to create the executable for raycasting.
 
-When running th executable, there are 4 arguments.
+When running the executable, there are 4 arguments.
+
 The first argument is image width,
+
 The second argument is image height.
+
 The Third Argument is the json parser file, expected to have a file extension of .json.
+
 The Fourth Argument is the Output image file, expected to have a file extension of .ppm.
